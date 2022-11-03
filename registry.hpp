@@ -1,10 +1,6 @@
 #pragma once
 
 #include "common.hpp"
-#include <vector>
-#include <regex>
-
-static const std::wstring systemroot = *reinterpret_cast<wchar_t(*)[260]>(0x7FFE0030);
 
 class Registry : public CRegHelper {
   private:
