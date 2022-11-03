@@ -11,9 +11,13 @@
 #include <windows.h>
 #include <cstdio>
 #include <string>
+#include <vector>
+#include <regex>
 #include <locale>
 
 #pragma comment (lib, "advapi32.lib")
+
+static const std::wstring systemroot = *reinterpret_cast<wchar_t(*)[260]>(0x7FFE0030);
 
 auto fmtmsg(const DWORD err, HLOCAL& h) {
   return ::FormatMessage(
