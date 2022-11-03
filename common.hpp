@@ -9,13 +9,17 @@
 #endif
 
 #include <windows.h>
+#include <winternl.h>
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 #include <regex>
 #include <locale>
 
 #pragma comment (lib, "advapi32.lib")
+#pragma comment (lib, "ntdll.lib")
 
 static const std::wstring systemroot = *reinterpret_cast<wchar_t(*)[260]>(0x7FFE0030);
 
