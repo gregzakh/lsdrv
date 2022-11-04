@@ -39,8 +39,9 @@ auto NtGetSystemModules(void) {
   s.erase(std::find(s.begin(), s.end(), '\0'), s.end());
 
   for (auto i = 0; i < modules[0].NumberOfModules; i++) {
-    printf("%p %10lu %s\n", modules[0].Modules[i].ImageBase,
-                            modules[0].Modules[i].ImageSize,
+    printf("%p %10lu %5hu %s\n", modules[0].Modules[i].ImageBase,
+                                 modules[0].Modules[i].ImageSize,
+                                 modules[0].Modules[i].LoadCount,
     std::regex_replace(reinterpret_cast<PSTR>(modules[0].Modules[i].FullPathName), re, s).c_str());
   }
 
