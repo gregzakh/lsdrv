@@ -11,26 +11,33 @@ class Registry : public CRegHelper {
     Registry(const Registry&) = delete;
     Registry& operator=(const Registry&) = delete;
 
-    auto queryinfo(LPDWORD subkeys, LPDWORD values, PFILETIME ft);
+    auto querykeyinfo(LPDWORD subkeys, LPDWORD values, PFILETIME ft);
     template<typename... ArgTypes>
-    auto queryvalue(PWSTR value, ArgTypes... args) {
+    auto querykeyvalue(PWSTR value, ArgTypes... args) {
       return ::RegQueryValueEx(c_key, value, nullptr, nullptr, args...);
     }
-    bool testdword(PWSTR name, DWORD limit);
-    void enumsubkeys(void);
-    void readvalue(PWSTR name);
+    auto readvaldword(PWSTR name, DWORD& value);
+    bool checkdriver(void);
+    auto readvalstr(PWSTR name);
+    auto getdrvpath(void);
+    void enumdrivers(void);
 };
 
-auto Registry::queryinfo(LPDWORD subkeys, LPDWORD values, PFILETIME ft) {
+auto Registry::querykeyinfo(LPDWORD subkeys, LPDWORD values, PFILETIME ft) {
   return ::RegQueryInfoKey(
     c_key, nullptr, nullptr, nullptr, subkeys, nullptr,
     nullptr, values, nullptr, nullptr, nullptr, ft
   );
 }
 
-bool Registry::testdword(PWSTR name, DWORD limit) {
-  DWORD value{}, size = sizeof(DWORD);
-  auto status = queryvalue(name, reinterpret_cast<PBYTE>(&value), &size);
+auto Registry::readvaldword(PWSTR name, DWORD& value) {
+  DWORD size = sizeof(DWORD);
+  return querykeyvalue(name, reinterpret_cast<PBYTE>(&value), &size);
+}
+
+bool Registry::checkdriver(void) {
+  DWORD value{};
+  auto status = readvaldword(L"Type", value);
   if (ERROR_SUCCESS != status) {
 #ifdef DEBUG
     getlaserror(status);
@@ -38,37 +45,48 @@ bool Registry::testdword(PWSTR name, DWORD limit) {
     return false;
   }
 
-  return value <= limit;
+  return value <= 3UL;
 }
 
-void Registry::readvalue(PWSTR name) {
+auto Registry::readvalstr(PWSTR name) {
   DWORD size{};
-  auto status = queryvalue(name, nullptr, &size);
-  if (ERROR_SUCCESS != status) {
+  std::wstring res = L"";
+  while (1) {
+    auto status = querykeyvalue(name, nullptr, &size);
+    if (ERROR_SUCCESS != status) {
 #ifdef DEBUG
-    getlaserror(status);
+      getlaserror(status);
 #endif
-    return;
+      break;
+    }
+
+    std::vector<BYTE> buf(size);
+    status = querykeyvalue(name, &buf[0], &size);
+    if (ERROR_SUCCESS != status) {
+#ifdef DEBUG
+      getlaserror(status);
+#endif
+      break;
+    }
+
+    res = reinterpret_cast<PWSTR>(&buf[0]);
+    break;
   }
 
-  std::vector<BYTE> buf(size);
-  status = queryvalue(name, &buf[0], &size);
-  if (ERROR_SUCCESS != status) {
-#ifdef DEBUG
-    getlaserror(status);
-#endif
-    return;
-  }
-
-  std::wregex re(L"\\\\SystemRoot", std::regex_constants::icase);
-  std::wstring s = std::regex_replace(reinterpret_cast<PWSTR>(&buf[0]), re, systemroot);
-  printf("%ws\n", (L's' == tolower(s[0]) ? systemroot + L"\\" + s : s).c_str());
+  return res;
 }
 
-void Registry::enumsubkeys(void) {
+auto Registry::getdrvpath(void) {
+  std::wregex re(L"\\\\SystemRoot\\\\", std::regex_constants::icase);
+  std::wstring res = readvalstr(L"ImagePath");
+  return res.length() ? systemroot + L"\\" + std::regex_replace(res, re, L"") : res;
+}
+
+void Registry::enumdrivers(void) {
+  static WCHAR *start[] = {L"Boot", L"System", L"Automatic", L"Manual", L"Disabled"};
   WCHAR subname[MAX_KEY_LENGTH];
-  DWORD subkeys{}, size{};
-  auto status = queryinfo(&subkeys, nullptr, nullptr);
+  DWORD subkeys{}, size{}, value{};
+  auto status = querykeyinfo(&subkeys, nullptr, nullptr);
   if (ERROR_SUCCESS != status) {
     getlaserror(status);
     return;
@@ -80,7 +98,12 @@ void Registry::enumsubkeys(void) {
       c_key, i, subname, &size, nullptr, nullptr, nullptr, nullptr
     )) continue;
     Registry sub(_key + subname);
-    if (sub.testdword(L"Type", 3))
-      sub.readvalue(L"ImagePath");
+    if (sub.checkdriver()) {
+      if (ERROR_SUCCESS == sub.readvaldword(L"Start", value))
+        printf("%-10ws %-25ws %ws\n", start[value],
+                                      sub.readvalstr(L"Group").c_str(),
+                                      sub.getdrvpath().c_str()
+        );
+    }
   }
 }
