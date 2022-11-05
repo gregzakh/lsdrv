@@ -25,7 +25,7 @@ struct RTL_PROCESS_MODULES {
 
 auto NtGetSystemModules(void) {
   ULONG buf_len{};
-  NTSTATUS nts = ::NtQuerySystemInformation(SystemModuleInformation, nullptr, 0, &buf_len);
+  auto nts = ::NtQuerySystemInformation(SystemModuleInformation, nullptr, 0, &buf_len);
   if (STATUS_INFO_LENGTH_MISMATCH != nts) return nts;
 
   std::vector<RTL_PROCESS_MODULES> modules(buf_len);
