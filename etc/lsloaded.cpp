@@ -11,7 +11,7 @@
 
 using NTSTATUS = LONG;
 
-#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0L)
+#define NT_SUCCESS(Status) (static_cast<NTSTATUS>(Status) >= 0L)
 #define fnget(P) reinterpret_cast<P>(GetProcAddress(GetModuleHandle(L"ntdll.dll"), (&((#P)[1]))))
 
 struct RTL_MODULE_BASIC_INFO {
