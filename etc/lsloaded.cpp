@@ -4,6 +4,7 @@
 
 #include <windows.h>
 #include <cstdio>
+#include <algorithm>
 #include <vector>
 #include <locale>
 
@@ -31,23 +32,24 @@ struct ntdll {
   pRtlNtStatusToDosError RtlNtStatusToDosError = fnget(pRtlNtStatusToDosError);
 
   bool isvalid(void) {
-    return this->RtlQueryModuleInformation != nullptr && this->RtlNtStatusToDosError != nullptr;
+    std::vector<PVOID> v{RtlQueryModuleInformation, RtlNtStatusToDosError};
+    return std::any_of(v.begin(), v.end(), [](PVOID const x){return nullptr != x;});
   }
 };
 
 int main(void) {
-  ntdll nt{};
-  if (!nt.isvalid()) {
+  ntdll ntdll{};
+  if (!ntdll.isvalid()) {
     printf("Cannot find required signature.\n");
     return 1;
   }
 
-  auto getlasterror = [&nt](NTSTATUS nts) {
+  auto getlasterror = [&ntdll](NTSTATUS nts) {
     HLOCAL loc{};
     std::locale::global(std::locale(""));
     DWORD size = ::FormatMessage(
       FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
-      nullptr, nt.RtlNtStatusToDosError(nts), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+      nullptr, ntdll.RtlNtStatusToDosError(nts), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
       reinterpret_cast<LPWSTR>(&loc), 0, nullptr
     );
     if (size)
@@ -60,14 +62,14 @@ int main(void) {
   };
 
   ULONG buf_len{}, size = sizeof(RTL_MODULE_EXTENDED_INFO);
-  auto nts = nt.RtlQueryModuleInformation(&buf_len, size, nullptr);
+  auto nts = ntdll.RtlQueryModuleInformation(&buf_len, size, nullptr);
   if (!NT_SUCCESS(nts)) {
     getlasterror(nts);
     return 1;
   }
 
   std::vector<RTL_MODULE_EXTENDED_INFO> modules(buf_len / size);
-  nts = nt.RtlQueryModuleInformation(&buf_len, size, &modules[0]);
+  nts = ntdll.RtlQueryModuleInformation(&buf_len, size, &modules[0]);
   if (!NT_SUCCESS(nts)) {
     getlasterror(nts);
     return 1;
