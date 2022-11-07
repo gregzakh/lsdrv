@@ -7,8 +7,6 @@
 #include <vector>
 #include <locale>
 
-#pragma comment (lib, "ntdll.lib")
-
 using NTSTATUS = LONG;
 
 #define NT_SUCCESS(Status) (static_cast<NTSTATUS>(Status) >= 0L)
